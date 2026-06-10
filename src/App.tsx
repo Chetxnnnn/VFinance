@@ -22,7 +22,7 @@ const T: Record<"light" | "dark", Theme> = {
   },
 };
 
-function useTheme() {
+export function useTheme() {
   const [dark, setDark] = useState(false);
   return { dark, C: dark ? T.dark : T.light, toggle: () => setDark((d) => !d) };
 }
@@ -270,7 +270,7 @@ const handleSTT = async () => {
 };
 
 // ── Navbar ─────────────────────────────────────────────────────────────────
-function Navbar({ C, dark, toggle }: { C: Theme; dark: boolean; toggle: () => void }) {
+export function Navbar({ C, dark, toggle }: { C: Theme; dark: boolean; toggle: () => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
@@ -306,11 +306,11 @@ function Navbar({ C, dark, toggle }: { C: Theme; dark: boolean; toggle: () => vo
               ? <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="square"><circle cx={12} cy={12} r={4} /><line x1={12} y1={2} x2={12} y2={5} /><line x1={12} y1={19} x2={12} y2={22} /><line x1={4} y1={12} x2={2} y2={12} /><line x1={22} y1={12} x2={19} y2={12} /></svg>
               : <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="square"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>}
           </button>
-          <button className="nav-desktop" style={{ padding: "9px 20px", background: C.ink, border: "none", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.bg, transition: "background 0.2s" }}
+          <a href="/register" className="nav-desktop" style={{ padding: "9px 20px", background: C.ink, border: "none", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.bg, transition: "background 0.2s", display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
             onMouseEnter={e => (e.currentTarget.style.background = C.accent)}
             onMouseLeave={e => (e.currentTarget.style.background = C.ink)}>
             Get started
-          </button>
+          </a>
           <button className="nav-mobile" onClick={() => setMenuOpen(m => !m)} style={{ width: 36, height: 36, background: "none", border: `1px solid ${C.border}`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, color: C.ink }}>
             <span style={{ display: "block", width: 16, height: 1.5, background: C.ink }} />
             <span style={{ display: "block", width: 16, height: 1.5, background: C.ink }} />
@@ -324,9 +324,9 @@ function Navbar({ C, dark, toggle }: { C: Theme; dark: boolean; toggle: () => vo
             <a key={l} href={`#${l.toLowerCase().replace(/\s+/g, "-")}`} onClick={() => setMenuOpen(false)}
               style={{ fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.9rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: C.ink, textDecoration: "none", padding: "14px 0", borderBottom: `1px solid ${C.borderFaint}` }}>{l}</a>
           ))}
-          <button style={{ marginTop: 16, padding: "13px", background: C.ink, border: "none", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.bg }}>
+          <a href="/register" style={{ marginTop: 16, padding: "13px", background: C.ink, border: "none", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.bg, display: 'inline-block', textAlign: 'center', textDecoration: 'none' }}>
             Get started
-          </button>
+          </a>
         </div>
       )}
     </nav>
@@ -381,11 +381,11 @@ function Hero({ C }: ThemeProps) {
             </Reveal>
             <Reveal delay={0.3} style={{ marginTop: 44 }}>
               <div style={{ display: "flex", gap: 0, flexWrap: "wrap" }}>
-                <button style={{ padding: "14px 36px", background: C.ink, border: `1px solid ${C.ink}`, cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.bg, transition: "all 0.2s" }}
+                <a href="/register" style={{ padding: "14px 36px", background: C.ink, border: `1px solid ${C.ink}`, cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.bg, transition: "all 0.2s", display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
                   onMouseEnter={e => { e.currentTarget.style.background = C.accent; e.currentTarget.style.color = "#0F0F0E"; e.currentTarget.style.borderColor = C.accent; }}
                   onMouseLeave={e => { e.currentTarget.style.background = C.ink; e.currentTarget.style.color = C.bg; e.currentTarget.style.borderColor = C.ink; }}>
                   Start free
-                </button>
+                </a>
                 <button style={{ padding: "14px 36px", background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.ink, marginLeft: -1, transition: "background 0.2s" }}
                   onMouseEnter={e => (e.currentTarget.style.background = C.borderFaint)}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
@@ -655,11 +655,11 @@ function Pricing({ C }: ThemeProps) {
                   </div>
                 ))}
               </div>
-              <button style={{ width: "100%", padding: "13px 0", background: p.featured ? C.accent : "transparent", border: `1px solid ${p.featured ? C.accent : C.border}`, cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: p.featured ? "#0F0F0E" : C.ink, transition: "background 0.2s, color 0.2s" }}
+              <a href="/register" style={{ width: "100%", padding: "13px 0", background: p.featured ? C.accent : "transparent", border: `1px solid ${p.featured ? C.accent : C.border}`, cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: p.featured ? "#0F0F0E" : C.ink, transition: "background 0.2s, color 0.2s", display: 'inline-block', textAlign: 'center', textDecoration: 'none' }}
                 onMouseEnter={e => { if (p.featured) { e.currentTarget.style.background = C.accentDk; } else { e.currentTarget.style.background = C.ink; e.currentTarget.style.color = C.bg; } }}
                 onMouseLeave={e => { if (p.featured) { e.currentTarget.style.background = C.accent; } else { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.ink; } }}>
                 {p.cta} →
-              </button>
+              </a>
             </div>
           ))}
         </div>
@@ -680,11 +680,11 @@ function CTABand({ C }: ThemeProps) {
         </Reveal>
         <Reveal delay={0.12}>
           <div style={{ display: "flex", gap: 0, flexWrap: "wrap" }}>
-            <button style={{ padding: "16px 40px", background: "#0F0F0E", border: "1px solid #0F0F0E", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, transition: "all 0.2s" }}
+            <a href="/register" style={{ padding: "16px 40px", background: "#0F0F0E", border: "1px solid #0F0F0E", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, transition: "all 0.2s", display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
               onMouseEnter={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#0F0F0E"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "#0F0F0E"; e.currentTarget.style.color = C.accent; }}>
               Start free now
-            </button>
+            </a>
             <button style={{ padding: "16px 40px", background: "transparent", border: "1px solid rgba(15,15,14,0.4)", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#0F0F0E", marginLeft: -1, transition: "background 0.2s" }}
               onMouseEnter={e => (e.currentTarget.style.background = "rgba(15,15,14,0.08)")}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
