@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect, useRef, ReactNode, CSSProperties } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -161,15 +162,15 @@ function Marquee({ C }: ThemeProps) {
 }
 
 // ── handleTts ──────────────────────────────────────────────────────────────
-// Points at your separate backend. Update VITE_API_URL in .env to your backend origin.
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+// Points at your separate backend. Update NEXT_PUBLIC_API_URL in .env to your backend origin.
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000");
 
 const handleTts = async () => {
-  const text = "hey my name is sarvam and i am a tts for your app!";
+  const text = "ज़रूर! 6 अगस्त 2026 को 20000 किराया चुका दिया गया था, मैंने इसे रिकॉर्ड कर लिया है!";
   console.log("[handleTts] Starting TTS request, text:", text);
   try {
-    console.log("[handleTts] Sending POST to", `${API_BASE}/api/test`);
-    const response = await fetch(`${API_BASE}/api/test`, {
+    console.log("[handleTts] Sending POST to", `${API_BASE}/api/tts`);
+    const response = await fetch(`${API_BASE}/api/tts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
@@ -196,6 +197,75 @@ const handleTts = async () => {
     alert("Something went wrong generating audio.");
   } finally {
     console.log("[handleTts] Done.");
+  }
+};
+
+const handleSTT = async () => {
+  // ── 1. Get mic access ────────────────────────────────────────────────────
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    console.error("[handleSTT] Mic access denied:", err);
+    alert("Microphone access is required for speech-to-text.");
+    return;
+  }
+
+  console.log("[handleSTT] Recording started — speak now (5 s)…");
+
+  // ── 2. Record for 5 seconds ──────────────────────────────────────────────
+  const chunks: BlobPart[] = [];
+  // Prefer webm/opus (Chrome/Firefox); Safari falls back to whatever is supported
+  const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+    ? "audio/webm;codecs=opus"
+    : MediaRecorder.isTypeSupported("audio/webm")
+      ? "audio/webm"
+      : "";
+  const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+  recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+  await new Promise<void>((resolve) => {
+    recorder.onstop = () => resolve();
+    recorder.start();
+    setTimeout(() => recorder.stop(), 5000); // record for 5 s
+  });
+
+  // Stop all mic tracks so the browser indicator goes away
+  stream.getTracks().forEach((t) => t.stop());
+
+  const audioBlob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+  console.log("[handleSTT] Recorded blob — size:", audioBlob.size, "type:", audioBlob.type);
+
+  // ── 3. Send to backend ───────────────────────────────────────────────────
+  const formData = new FormData();
+  // Sarvam AI expects the field name "file" with a proper filename
+  formData.append("file", audioBlob, "recording.webm");
+
+  try {
+    console.log("[handleSTT] POSTing to", `${API_BASE}/api/stt`);
+    const response = await fetch(`${API_BASE}/api/stt`, {
+      method: "POST",
+      body: formData, // multipart/form-data — do NOT set Content-Type manually
+    });
+
+    console.log("[handleSTT] Response status:", response.status, response.statusText);
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      console.error("[handleSTT] Non-OK response body:", errBody);
+      throw new Error(`STT request failed: ${response.status} ${response.statusText}`);
+    }
+
+    // ── 4. Show transcript ─────────────────────────────────────────────────
+    const data = await response.json() as { transcript?: string; text?: string };
+    const transcript = data.transcript ?? data.text ?? JSON.stringify(data);
+    console.log("[handleSTT] Transcript:", transcript);
+    alert(`Transcript:\n${transcript}`);
+  } catch (error) {
+    console.error("[handleSTT] Error:", error);
+    alert("Something went wrong with speech recognition.");
+  } finally {
+    console.log("[handleSTT] Done.");
   }
 };
 
@@ -327,6 +397,12 @@ function Hero({ C }: ThemeProps) {
                   onClick={handleTts}>
                   Try TTS →
                 </button>
+                <button style={{ padding: "14px 36px", background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.ink, marginLeft: -1, transition: "background 0.2s" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = C.borderFaint)}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  onClick={handleSTT}>
+                  Try STT →
+                </button>
               </div>
             </Reveal>
             <Reveal delay={0.38} style={{ marginTop: 72 }}>
@@ -422,9 +498,9 @@ function Features({ C }: ThemeProps) {
 // ── HowItWorks ─────────────────────────────────────────────────────────────
 function HowItWorks({ C }: ThemeProps) {
   const steps = [
-    { n: "I",   title: "Speak",   sub: "Say anything naturally", body: "'Spent $340 on groceries.' 'Transfer $500 to savings.' 'What did I spend on food last month?' — any phrasing works." },
-    { n: "II",  title: "Extract", sub: "AI parses in 200ms",     body: "Amount, category, merchant, intent, and time context are extracted by a fine-tuned language model trained on 40M financial transactions." },
-    { n: "III", title: "Insight", sub: "Your data, instantly",   body: "Dashboard updates live. Budget impact calculated. AI advice generated. A complete picture of your financial life, updated the moment you finish speaking." },
+    { n: "I", title: "Speak", sub: "Say anything naturally", body: "'Spent $340 on groceries.' 'Transfer $500 to savings.' 'What did I spend on food last month?' — any phrasing works." },
+    { n: "II", title: "Extract", sub: "AI parses in 200ms", body: "Amount, category, merchant, intent, and time context are extracted by a fine-tuned language model trained on 40M financial transactions." },
+    { n: "III", title: "Insight", sub: "Your data, instantly", body: "Dashboard updates live. Budget impact calculated. AI advice generated. A complete picture of your financial life, updated the moment you finish speaking." },
   ];
   return (
     <section id="how-it-works" style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
@@ -638,7 +714,7 @@ function Footer({ C }: ThemeProps) {
           {[
             { h: "Product", l: ["Features", "How it works", "Pricing", "Changelog", "Mobile app"] },
             { h: "Company", l: ["About", "Blog", "Careers", "Press", "Contact"] },
-            { h: "Legal",   l: ["Privacy", "Terms", "Security", "GDPR"] },
+            { h: "Legal", l: ["Privacy", "Terms", "Security", "GDPR"] },
           ].map(({ h, l }) => (
             <div key={h}>
               <div style={{ fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(242,239,232,0.3)", marginBottom: 20 }}>{h}</div>
