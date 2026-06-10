@@ -39,3 +39,16 @@ body {
   50%       { transform: scaleY(1); }
 }
 
+/* Responsive Navigation */
+@media (max-width: 768px) {
+  .nav-desktop {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .nav-mobile {
+    display: none !important;
+  }
+}
+
