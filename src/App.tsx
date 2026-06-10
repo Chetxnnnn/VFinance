@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect, useRef, ReactNode, CSSProperties } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -21,7 +22,7 @@ const T: Record<"light" | "dark", Theme> = {
   },
 };
 
-function useTheme() {
+export function useTheme() {
   const [dark, setDark] = useState(false);
   return { dark, C: dark ? T.dark : T.light, toggle: () => setDark((d) => !d) };
 }
@@ -161,15 +162,15 @@ function Marquee({ C }: ThemeProps) {
 }
 
 // ── handleTts ──────────────────────────────────────────────────────────────
-// Points at your separate backend. Update VITE_API_URL in .env to your backend origin.
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+// Points at your separate backend. Update NEXT_PUBLIC_API_URL in .env to your backend origin.
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000");
 
 const handleTts = async () => {
-  const text = "hey my name is sarvam and i am a tts for your app!";
+  const text = "ज़रूर! 6 अगस्त 2026 को 20000 किराया चुका दिया गया था, मैंने इसे रिकॉर्ड कर लिया है!";
   console.log("[handleTts] Starting TTS request, text:", text);
   try {
-    console.log("[handleTts] Sending POST to", `${API_BASE}/api/test`);
-    const response = await fetch(`${API_BASE}/api/test`, {
+    console.log("[handleTts] Sending POST to", `${API_BASE}/api/tts`);
+    const response = await fetch(`${API_BASE}/api/tts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
@@ -199,8 +200,77 @@ const handleTts = async () => {
   }
 };
 
+const handleSTT = async () => {
+  // ── 1. Get mic access ────────────────────────────────────────────────────
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    console.error("[handleSTT] Mic access denied:", err);
+    alert("Microphone access is required for speech-to-text.");
+    return;
+  }
+
+  console.log("[handleSTT] Recording started — speak now (5 s)…");
+
+  // ── 2. Record for 5 seconds ──────────────────────────────────────────────
+  const chunks: BlobPart[] = [];
+  // Prefer webm/opus (Chrome/Firefox); Safari falls back to whatever is supported
+  const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+    ? "audio/webm;codecs=opus"
+    : MediaRecorder.isTypeSupported("audio/webm")
+      ? "audio/webm"
+      : "";
+  const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+  recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+  await new Promise<void>((resolve) => {
+    recorder.onstop = () => resolve();
+    recorder.start();
+    setTimeout(() => recorder.stop(), 5000); // record for 5 s
+  });
+
+  // Stop all mic tracks so the browser indicator goes away
+  stream.getTracks().forEach((t) => t.stop());
+
+  const audioBlob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+  console.log("[handleSTT] Recorded blob — size:", audioBlob.size, "type:", audioBlob.type);
+
+  // ── 3. Send to backend ───────────────────────────────────────────────────
+  const formData = new FormData();
+  // Sarvam AI expects the field name "file" with a proper filename
+  formData.append("file", audioBlob, "recording.webm");
+
+  try {
+    console.log("[handleSTT] POSTing to", `${API_BASE}/api/stt`);
+    const response = await fetch(`${API_BASE}/api/stt`, {
+      method: "POST",
+      body: formData, // multipart/form-data — do NOT set Content-Type manually
+    });
+
+    console.log("[handleSTT] Response status:", response.status, response.statusText);
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      console.error("[handleSTT] Non-OK response body:", errBody);
+      throw new Error(`STT request failed: ${response.status} ${response.statusText}`);
+    }
+
+    // ── 4. Show transcript ─────────────────────────────────────────────────
+    const data = await response.json() as { transcript?: string; text?: string };
+    const transcript = data.transcript ?? data.text ?? JSON.stringify(data);
+    console.log("[handleSTT] Transcript:", transcript);
+    alert(`Transcript:\n${transcript}`);
+  } catch (error) {
+    console.error("[handleSTT] Error:", error);
+    alert("Something went wrong with speech recognition.");
+  } finally {
+    console.log("[handleSTT] Done.");
+  }
+};
+
 // ── Navbar ─────────────────────────────────────────────────────────────────
-function Navbar({ C, dark, toggle }: { C: Theme; dark: boolean; toggle: () => void }) {
+export function Navbar({ C, dark, toggle }: { C: Theme; dark: boolean; toggle: () => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
@@ -236,11 +306,11 @@ function Navbar({ C, dark, toggle }: { C: Theme; dark: boolean; toggle: () => vo
               ? <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="square"><circle cx={12} cy={12} r={4} /><line x1={12} y1={2} x2={12} y2={5} /><line x1={12} y1={19} x2={12} y2={22} /><line x1={4} y1={12} x2={2} y2={12} /><line x1={22} y1={12} x2={19} y2={12} /></svg>
               : <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="square"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>}
           </button>
-          <button className="nav-desktop" style={{ padding: "9px 20px", background: C.ink, border: "none", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.bg, transition: "background 0.2s" }}
+          <a href="/register" className="nav-desktop" style={{ padding: "9px 20px", background: C.ink, border: "none", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.bg, transition: "background 0.2s", display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
             onMouseEnter={e => (e.currentTarget.style.background = C.accent)}
             onMouseLeave={e => (e.currentTarget.style.background = C.ink)}>
             Get started
-          </button>
+          </a>
           <button className="nav-mobile" onClick={() => setMenuOpen(m => !m)} style={{ width: 36, height: 36, background: "none", border: `1px solid ${C.border}`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, color: C.ink }}>
             <span style={{ display: "block", width: 16, height: 1.5, background: C.ink }} />
             <span style={{ display: "block", width: 16, height: 1.5, background: C.ink }} />
@@ -254,9 +324,9 @@ function Navbar({ C, dark, toggle }: { C: Theme; dark: boolean; toggle: () => vo
             <a key={l} href={`#${l.toLowerCase().replace(/\s+/g, "-")}`} onClick={() => setMenuOpen(false)}
               style={{ fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.9rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: C.ink, textDecoration: "none", padding: "14px 0", borderBottom: `1px solid ${C.borderFaint}` }}>{l}</a>
           ))}
-          <button style={{ marginTop: 16, padding: "13px", background: C.ink, border: "none", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.bg }}>
+          <a href="/register" style={{ marginTop: 16, padding: "13px", background: C.ink, border: "none", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.bg, display: 'inline-block', textAlign: 'center', textDecoration: 'none' }}>
             Get started
-          </button>
+          </a>
         </div>
       )}
     </nav>
@@ -311,11 +381,11 @@ function Hero({ C }: ThemeProps) {
             </Reveal>
             <Reveal delay={0.3} style={{ marginTop: 44 }}>
               <div style={{ display: "flex", gap: 0, flexWrap: "wrap" }}>
-                <button style={{ padding: "14px 36px", background: C.ink, border: `1px solid ${C.ink}`, cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.bg, transition: "all 0.2s" }}
+                <a href="/register" style={{ padding: "14px 36px", background: C.ink, border: `1px solid ${C.ink}`, cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.bg, transition: "all 0.2s", display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
                   onMouseEnter={e => { e.currentTarget.style.background = C.accent; e.currentTarget.style.color = "#0F0F0E"; e.currentTarget.style.borderColor = C.accent; }}
                   onMouseLeave={e => { e.currentTarget.style.background = C.ink; e.currentTarget.style.color = C.bg; e.currentTarget.style.borderColor = C.ink; }}>
                   Start free
-                </button>
+                </a>
                 <button style={{ padding: "14px 36px", background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.ink, marginLeft: -1, transition: "background 0.2s" }}
                   onMouseEnter={e => (e.currentTarget.style.background = C.borderFaint)}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
@@ -326,6 +396,12 @@ function Hero({ C }: ThemeProps) {
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   onClick={handleTts}>
                   Try TTS →
+                </button>
+                <button style={{ padding: "14px 36px", background: "transparent", border: `1px solid ${C.border}`, cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.ink, marginLeft: -1, transition: "background 0.2s" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = C.borderFaint)}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  onClick={handleSTT}>
+                  Try STT →
                 </button>
               </div>
             </Reveal>
@@ -422,9 +498,9 @@ function Features({ C }: ThemeProps) {
 // ── HowItWorks ─────────────────────────────────────────────────────────────
 function HowItWorks({ C }: ThemeProps) {
   const steps = [
-    { n: "I",   title: "Speak",   sub: "Say anything naturally", body: "'Spent $340 on groceries.' 'Transfer $500 to savings.' 'What did I spend on food last month?' — any phrasing works." },
-    { n: "II",  title: "Extract", sub: "AI parses in 200ms",     body: "Amount, category, merchant, intent, and time context are extracted by a fine-tuned language model trained on 40M financial transactions." },
-    { n: "III", title: "Insight", sub: "Your data, instantly",   body: "Dashboard updates live. Budget impact calculated. AI advice generated. A complete picture of your financial life, updated the moment you finish speaking." },
+    { n: "I", title: "Speak", sub: "Say anything naturally", body: "'Spent $340 on groceries.' 'Transfer $500 to savings.' 'What did I spend on food last month?' — any phrasing works." },
+    { n: "II", title: "Extract", sub: "AI parses in 200ms", body: "Amount, category, merchant, intent, and time context are extracted by a fine-tuned language model trained on 40M financial transactions." },
+    { n: "III", title: "Insight", sub: "Your data, instantly", body: "Dashboard updates live. Budget impact calculated. AI advice generated. A complete picture of your financial life, updated the moment you finish speaking." },
   ];
   return (
     <section id="how-it-works" style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
@@ -579,11 +655,11 @@ function Pricing({ C }: ThemeProps) {
                   </div>
                 ))}
               </div>
-              <button style={{ width: "100%", padding: "13px 0", background: p.featured ? C.accent : "transparent", border: `1px solid ${p.featured ? C.accent : C.border}`, cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: p.featured ? "#0F0F0E" : C.ink, transition: "background 0.2s, color 0.2s" }}
+              <a href="/register" style={{ width: "100%", padding: "13px 0", background: p.featured ? C.accent : "transparent", border: `1px solid ${p.featured ? C.accent : C.border}`, cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: p.featured ? "#0F0F0E" : C.ink, transition: "background 0.2s, color 0.2s", display: 'inline-block', textAlign: 'center', textDecoration: 'none' }}
                 onMouseEnter={e => { if (p.featured) { e.currentTarget.style.background = C.accentDk; } else { e.currentTarget.style.background = C.ink; e.currentTarget.style.color = C.bg; } }}
                 onMouseLeave={e => { if (p.featured) { e.currentTarget.style.background = C.accent; } else { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.ink; } }}>
                 {p.cta} →
-              </button>
+              </a>
             </div>
           ))}
         </div>
@@ -604,11 +680,11 @@ function CTABand({ C }: ThemeProps) {
         </Reveal>
         <Reveal delay={0.12}>
           <div style={{ display: "flex", gap: 0, flexWrap: "wrap" }}>
-            <button style={{ padding: "16px 40px", background: "#0F0F0E", border: "1px solid #0F0F0E", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, transition: "all 0.2s" }}
+            <a href="/register" style={{ padding: "16px 40px", background: "#0F0F0E", border: "1px solid #0F0F0E", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.accent, transition: "all 0.2s", display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
               onMouseEnter={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#0F0F0E"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "#0F0F0E"; e.currentTarget.style.color = C.accent; }}>
               Start free now
-            </button>
+            </a>
             <button style={{ padding: "16px 40px", background: "transparent", border: "1px solid rgba(15,15,14,0.4)", cursor: "pointer", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#0F0F0E", marginLeft: -1, transition: "background 0.2s" }}
               onMouseEnter={e => (e.currentTarget.style.background = "rgba(15,15,14,0.08)")}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
@@ -638,7 +714,7 @@ function Footer({ C }: ThemeProps) {
           {[
             { h: "Product", l: ["Features", "How it works", "Pricing", "Changelog", "Mobile app"] },
             { h: "Company", l: ["About", "Blog", "Careers", "Press", "Contact"] },
-            { h: "Legal",   l: ["Privacy", "Terms", "Security", "GDPR"] },
+            { h: "Legal", l: ["Privacy", "Terms", "Security", "GDPR"] },
           ].map(({ h, l }) => (
             <div key={h}>
               <div style={{ fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(242,239,232,0.3)", marginBottom: 20 }}>{h}</div>
